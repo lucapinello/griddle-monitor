@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Griddle Monitor</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- NoSleep.js - prevents screen from sleeping on iOS/Android -->
+    <script src="https://cdn.jsdelivr.net/npm/nosleep.js@0.12.0/dist/NoSleep.min.js"></script>
+</head>
+<body>
+    <!-- Audio re-enable prompt (shown after screen lock/unlock) -->
+    <div class="audio-prompt" id="audio-prompt">
+        <div class="audio-prompt-content">
+            <div class="audio-prompt-icon">🔔</div>
+            <div class="audio-prompt-text">Tap to enable alarm sounds</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Griddle Monitor</h1>
+            <div class="status-indicator" id="connection-status">Connecting...</div>
+        </header>
+
+        <main>
+            <!-- Temperature Display -->
+            <section class="temp-display" id="temp-display">
+                <div class="temp-value">
+                    <span id="current-temp">--</span>
+                    <span class="temp-unit">°F</span>
+                </div>
+                <div class="temp-secondary">
+                    <span id="current-temp-c">--</span>°C
+                </div>
+                <div class="humidity">
+                    Humidity: <span id="current-humidity">--</span>%
+                </div>
+                <div class="last-update">
+                    Updated: <span id="last-update">--:--:--</span>
+                </div>
+                <button class="rescan-btn" id="rescan-btn">Rescan Network</button>
+            </section>
+
+            <!-- Temperature Graph -->
+            <section class="graph-section">
+                <!-- Chart header with title and prediction -->
+                <div class="chart-header" id="chart-header">
+                    <span class="chart-title">Temperature</span>
+                    <span class="prediction-separator" id="prediction-separator"> · </span>
+                    <span class="prediction-text" id="prediction-text"></span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="temp-chart"></canvas>
+                </div>
+            </section>
+
+            <!-- Alarm notification bar (between chart and alarm config) -->
+            <div class="alarm-notification" id="alarm-notification">
+                <span class="alarm-notification-text" id="alarm-notification-text"></span>
+                <button class="alarm-notification-dismiss" id="alarm-notification-dismiss">OK</button>
+            </div>
+
+            <!-- Alarm Configuration -->
+            <section class="alarms-section">
+                <h2>Alarms</h2>
+
+                <!-- Target Temperature (Ready to Cook) -->
+                <div class="alarm-row" id="alarm-target">
+                    <label class="alarm-toggle">
+                        <input type="checkbox" id="target-enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div class="alarm-config">
+                        <span class="alarm-label">Ready at</span>
+                        <input type="number" id="target-temp" value="350" min="100" max="600">
+                        <span class="alarm-unit">°F</span>
+                    </div>
+                    <div class="alarm-status" id="target-status"></div>
+                </div>
+
+                <!-- Max Temperature (Too Hot) -->
+                <div class="alarm-row alarm-danger" id="alarm-max">
+                    <label class="alarm-toggle">
+                        <input type="checkbox" id="max-enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div class="alarm-config">
+                        <span class="alarm-label">Too hot above</span>
+                        <input type="number" id="max-temp" value="450" min="100" max="700">
+                        <span class="alarm-unit">°F</span>
+                    </div>
+                    <div class="alarm-status" id="max-status"></div>
+                </div>
+
+                <!-- Min Temperature (Too Low) -->
+                <div class="alarm-row alarm-warning" id="alarm-min">
+                    <label class="alarm-toggle">
+                        <input type="checkbox" id="min-enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div class="alarm-config">
+                        <span class="alarm-label">Too low below</span>
+                        <input type="number" id="min-temp" value="300" min="50" max="500">
+                        <span class="alarm-unit">°F</span>
+                    </div>
+                    <div class="alarm-status" id="min-status"></div>
+                </div>
+            </section>
+
+                    </main>
+    </div>
+
+    <script src="/static/app.js?v=2.4"></script>
+</body>
+</html>
