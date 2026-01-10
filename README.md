@@ -20,10 +20,6 @@ A real-time web app for monitoring griddle/grill temperature using a **Tuya ZFX-
 - **Auto-discovery** - Finds device IP automatically (handles DHCP changes)
 - **Local communication** - Talks directly to device, no cloud required
 
-## Screenshots
-
-*Temperature monitoring with real-time graph and alarm configuration*
-
 ## Raspberry Pi
 
 For Raspberry Pi installation (including auto-start on boot), see **[RASPBERRY_PI.md](RASPBERRY_PI.md)**.
@@ -60,24 +56,15 @@ You'll need:
 - **Access ID** and **Access Secret** from [Tuya IoT Platform](https://iot.tuya.com/)
 - Your device linked to the Tuya Smart or Smart Life app
 
-This creates a `devices.json` file with your device credentials.
+This creates a `devices.json` file with your device credentials. The app reads this file automatically.
 
-### 4. Update app.py with your credentials
-
-Edit `app.py` and update these values from your `devices.json`:
-
-```python
-DEVICE_ID = "your_device_id"
-LOCAL_KEY = "your_local_key"
-```
-
-### 5. Start the server
+### 4. Start the server
 
 ```bash
 python app.py
 ```
 
-### 6. Open in browser
+### 5. Open in browser
 
 - **Local**: http://localhost:5001
 - **From phone/tablet**: http://YOUR_COMPUTER_IP:5001

@@ -29,5 +29,5 @@ Thumbs.db
 # Logs
 *.log
 
-# Development notes (optional - remove this line if you want to include)
-# DEVELOPMENT_NOTES.md
+# Development notes (contains sensitive device info)
+DEVELOPMENT_NOTES.md

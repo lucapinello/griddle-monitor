@@ -88,7 +88,7 @@ Run the TinyTuya wizard:
 python -m tinytuya wizard
 ```
 
-Enter your Tuya IoT Platform credentials when prompted. This creates `devices.json` with your device ID and local key.
+Enter your Tuya IoT Platform credentials when prompted. This creates `devices.json` with your device ID and local key. The app reads this file automatically.
 
 ### Step 6: Test the Application
 
