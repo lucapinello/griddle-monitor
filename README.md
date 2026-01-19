@@ -1,6 +1,6 @@
 # Griddle Temperature Monitor
 
-A real-time web app for monitoring griddle/grill temperature using a **Tuya ZFX-WT02** WiFi temperature probe. Built with Flask, WebSockets, and Chart.js.
+A real-time web app for monitoring griddle/grill temperature using **Tuya ZFX-WT01/WT02** WiFi temperature probes. Built with Flask, WebSockets, and Chart.js.
 
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -69,27 +69,73 @@ python app.py
 - **Local**: http://localhost:5001
 - **From phone/tablet**: http://YOUR_COMPUTER_IP:5001
 
-## Device Information
+## Supported Devices
 
-### Supported Device
+| Device | Sensor Type | Protocol | Temp Divisor |
+|--------|-------------|----------|--------------|
+| **ZFX-WT01** | K-type thermocouple | 3.5 | 1 (raw °C) |
+| **ZFX-WT02** | NTC thermistor | 3.4 | 10 (value/10 = °C) |
 
-- **Device**: ZFX-WT02 WiFi Temperature/Humidity Probe
-- **Protocol Version**: 3.4
-- **Communication**: Local network via TinyTuya (no cloud required)
+The app auto-detects the device type from `devices.json` and applies the correct temperature conversion.
 
 ### Data Points (DPS)
 
 | DPS | Description | Format |
 |-----|-------------|--------|
-| 101 | Temperature | Integer, divide by 10 for °C |
+| 101 | Temperature | Integer (divisor depends on device type) |
 | 102 | Humidity | Integer, divide by 10 for % |
 | 119 | Temperature unit | String: "c" or "f" |
+
+## Device Selection
+
+If you have multiple devices in `devices.json`, you can select which one to use:
+
+### Option 1: Environment Variables
+
+```bash
+# Select by device name (partial match)
+TUYA_DEVICE_NAME="WT01" python app.py
+
+# Select by index (0-based)
+TUYA_DEVICE_INDEX=1 python app.py
+
+# Force device type (if auto-detection fails)
+TUYA_DEVICE_TYPE="wt01" python app.py
+
+# Override protocol version
+TUYA_VERSION="3.5" python app.py
+
+# Or provide credentials directly (bypasses devices.json)
+TUYA_DEVICE_ID="your_id" TUYA_LOCAL_KEY="your_key" TUYA_DEVICE_TYPE="wt01" python app.py
+```
+
+### Option 2: Systemd Service
+
+Edit `griddle-monitor.service` to add environment variables:
+
+```ini
+[Service]
+Environment=TUYA_DEVICE_NAME=WT01
+# or
+Environment=TUYA_DEVICE_INDEX=0
+```
+
+### Available Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `TUYA_DEVICE_ID` | Device ID (bypasses devices.json) |
+| `TUYA_LOCAL_KEY` | Local key (required with DEVICE_ID) |
+| `TUYA_DEVICE_NAME` | Select device by name from devices.json |
+| `TUYA_DEVICE_INDEX` | Select device by index (0-based) |
+| `TUYA_DEVICE_TYPE` | Force type: `wt01` or `wt02` |
+| `TUYA_VERSION` | Protocol version: `3.4` or `3.5` |
 
 ## Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  ZFX-WT02       │────▶│  Flask Backend  │────▶│  Browser UI     │
+│  ZFX-WT01/02    │────▶│  Flask Backend  │────▶│  Browser UI     │
 │  (Tuya device)  │     │  + WebSocket    │     │  (Chart.js)     │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
         │                       │                       │
@@ -152,6 +198,16 @@ python -m tinytuya wizard
 
 ### Alarms not working on mobile
 Mobile browsers require user interaction before playing audio. Tap anywhere on the page after loading to enable sounds.
+
+### Temperature reading is wrong (e.g., 2.5°C instead of 25°C)
+The app may have detected the wrong device type. Force the correct type:
+```bash
+# For ZFX-WT01 (K-type thermocouple) - no division needed
+TUYA_DEVICE_TYPE="wt01" python app.py
+
+# For ZFX-WT02 (NTC thermistor) - divide by 10
+TUYA_DEVICE_TYPE="wt02" python app.py
+```
 
 ## Tech Stack
 

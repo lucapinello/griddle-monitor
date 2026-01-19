@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Griddle Temperature Monitor
-Real-time temperature monitoring web app for ZFX-WT02 device.
+Real-time temperature monitoring web app for ZFX-WT01/WT02 devices.
 """
 
 from flask import Flask, render_template
@@ -11,6 +11,7 @@ import threading
 import time
 import json
 import os
+import re
 from collections import deque
 from datetime import datetime
 
@@ -19,34 +20,170 @@ app.config['SECRET_KEY'] = 'griddle-monitor-secret'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 
+# Device type configurations
+# WT01: K-type thermocouple, returns temperature directly (no division needed)
+# WT02: NTC thermistor, returns temperature * 10
+DEVICE_PROFILES = {
+    'wt01': {
+        'name': 'ZFX-WT01 (K-type thermocouple)',
+        'temp_divisor': 1,      # Temperature returned directly
+        'humidity_divisor': 10,
+        'default_version': 3.5,
+    },
+    'wt02': {
+        'name': 'ZFX-WT02 (NTC thermistor)',
+        'temp_divisor': 10,     # Temperature * 10
+        'humidity_divisor': 10,
+        'default_version': 3.4,
+    },
+}
+
+
+def detect_device_type(device_info):
+    """Detect device type from device info (name, model, product_name)."""
+    # Check various fields for device type indicators
+    fields_to_check = [
+        device_info.get('name', ''),
+        device_info.get('model', ''),
+        device_info.get('product_name', ''),
+    ]
+
+    combined = ' '.join(fields_to_check).upper()
+
+    if 'WT01' in combined or 'WT-01' in combined:
+        return 'wt01'
+    elif 'WT02' in combined or 'WT-02' in combined:
+        return 'wt02'
+
+    # Default to wt02 for backward compatibility
+    return 'wt02'
+
+
+def find_device_in_list(devices, device_name=None, device_index=None):
+    """Find a device in the devices list by name or index."""
+    if not devices:
+        return None
+
+    # If device_name specified, search for it
+    if device_name:
+        device_name_lower = device_name.lower()
+        for device in devices:
+            name = device.get('name', '').lower()
+            model = device.get('model', '').lower()
+            product_name = device.get('product_name', '').lower()
+            device_id = device.get('id', '').lower()
+
+            if (device_name_lower in name or
+                device_name_lower in model or
+                device_name_lower in product_name or
+                device_name_lower == device_id):
+                return device
+
+        print(f"Warning: Device '{device_name}' not found, using first device")
+
+    # If device_index specified, use it
+    if device_index is not None:
+        if 0 <= device_index < len(devices):
+            return devices[device_index]
+        else:
+            print(f"Warning: Device index {device_index} out of range, using first device")
+
+    # Default to first device
+    return devices[0]
+
+
 def load_device_config():
-    """Load device configuration from devices.json or environment variables."""
-    # Try environment variables first
+    """
+    Load device configuration from environment variables or devices.json.
+
+    Environment variables:
+        TUYA_DEVICE_ID: Device ID (required if not using devices.json)
+        TUYA_LOCAL_KEY: Local key (required if not using devices.json)
+        TUYA_VERSION: Protocol version (default: auto-detect or 3.5)
+        TUYA_DEVICE_TYPE: Force device type ('wt01' or 'wt02')
+        TUYA_DEVICE_NAME: Select device by name from devices.json
+        TUYA_DEVICE_INDEX: Select device by index from devices.json (0-based)
+    """
+    # Check for direct device credentials in environment
     device_id = os.environ.get('TUYA_DEVICE_ID')
     local_key = os.environ.get('TUYA_LOCAL_KEY')
-    version = float(os.environ.get('TUYA_VERSION', '3.4'))
+    env_version = os.environ.get('TUYA_VERSION')
+    env_device_type = os.environ.get('TUYA_DEVICE_TYPE', '').lower()
 
     if device_id and local_key:
-        return device_id, local_key, version
+        # Using environment variables directly
+        device_type = env_device_type if env_device_type in DEVICE_PROFILES else 'wt02'
+        profile = DEVICE_PROFILES[device_type]
+        version = float(env_version) if env_version else profile['default_version']
+
+        return {
+            'id': device_id,
+            'key': local_key,
+            'version': version,
+            'type': device_type,
+            'profile': profile,
+        }
 
     # Fall back to devices.json
     devices_file = os.path.join(os.path.dirname(__file__), 'devices.json')
     if os.path.exists(devices_file):
         with open(devices_file, 'r') as f:
             devices = json.load(f)
+
             if devices:
-                device = devices[0]  # Use first device
-                return device['id'], device['key'], float(device.get('version', 3.5))
+                # Find device by name or index
+                device_name = os.environ.get('TUYA_DEVICE_NAME')
+                device_index_str = os.environ.get('TUYA_DEVICE_INDEX')
+                device_index = int(device_index_str) if device_index_str else None
+
+                device = find_device_in_list(devices, device_name, device_index)
+
+                if device:
+                    # Auto-detect device type or use environment override
+                    if env_device_type in DEVICE_PROFILES:
+                        device_type = env_device_type
+                    else:
+                        device_type = detect_device_type(device)
+
+                    profile = DEVICE_PROFILES[device_type]
+
+                    # Use version from device, env, or profile default
+                    if env_version:
+                        version = float(env_version)
+                    elif device.get('version'):
+                        version = float(device['version'])
+                    else:
+                        version = profile['default_version']
+
+                    return {
+                        'id': device['id'],
+                        'key': device['key'],
+                        'version': version,
+                        'type': device_type,
+                        'profile': profile,
+                        'name': device.get('name', 'Unknown'),
+                    }
 
     raise ValueError(
         "No device configuration found. Either:\n"
         "  1. Run 'python -m tinytuya wizard' to create devices.json, or\n"
-        "  2. Set TUYA_DEVICE_ID and TUYA_LOCAL_KEY environment variables"
+        "  2. Set TUYA_DEVICE_ID and TUYA_LOCAL_KEY environment variables\n"
+        "\n"
+        "Optional environment variables:\n"
+        "  TUYA_DEVICE_NAME  - Select device by name from devices.json\n"
+        "  TUYA_DEVICE_INDEX - Select device by index (0-based)\n"
+        "  TUYA_DEVICE_TYPE  - Force device type: 'wt01' or 'wt02'\n"
+        "  TUYA_VERSION      - Protocol version (e.g., '3.4' or '3.5')"
     )
 
 
-# Device configuration
-DEVICE_ID, LOCAL_KEY, VERSION = load_device_config()
+# Load device configuration
+DEVICE_CONFIG = load_device_config()
+DEVICE_ID = DEVICE_CONFIG['id']
+LOCAL_KEY = DEVICE_CONFIG['key']
+VERSION = DEVICE_CONFIG['version']
+DEVICE_TYPE = DEVICE_CONFIG['type']
+DEVICE_PROFILE = DEVICE_CONFIG['profile']
 
 # Current device IP (discovered automatically)
 device_ip = None
@@ -155,9 +292,10 @@ def poll_temperature():
 
         if 'dps' in status:
             dps = status['dps']
-            temp_c = dps.get('101', 0) / 10
+            # Use device profile for correct divisors
+            temp_c = dps.get('101', 0) / DEVICE_PROFILE['temp_divisor']
             temp_f = celsius_to_fahrenheit(temp_c)
-            humidity = dps.get('102', 0) / 10
+            humidity = dps.get('102', 0) / DEVICE_PROFILE['humidity_divisor']
 
             timestamp = datetime.now().strftime('%H:%M')
 
@@ -226,7 +364,11 @@ def start_polling():
 
 if __name__ == '__main__':
     print("Starting Griddle Temperature Monitor...")
+    print(f"Device: {DEVICE_CONFIG.get('name', 'Unknown')}")
     print(f"Device ID: {DEVICE_ID}")
+    print(f"Device Type: {DEVICE_PROFILE['name']}")
+    print(f"Protocol Version: {VERSION}")
+    print(f"Temperature Divisor: {DEVICE_PROFILE['temp_divisor']}")
     print("Discovering device on network...")
     discover_device_ip()
     if device_ip:

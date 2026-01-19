@@ -2,6 +2,15 @@
 
 Complete installation guide for running Griddle Monitor on a Raspberry Pi.
 
+## Supported Devices
+
+| Device | Sensor Type | Protocol | Notes |
+|--------|-------------|----------|-------|
+| **ZFX-WT01** | K-type thermocouple | 3.5 | High-temp cooking |
+| **ZFX-WT02** | NTC thermistor | 3.4 | General purpose |
+
+The app auto-detects the device type and applies the correct temperature conversion.
+
 ## Tested Configurations
 
 | OS | Python | Status |
@@ -16,7 +25,7 @@ Complete installation guide for running Griddle Monitor on a Raspberry Pi.
 - Raspberry Pi (any model with WiFi)
 - Raspbian Buster, Bullseye, or newer (also works on Volumio, DietPi, etc.)
 - Python 3.7 or newer
-- ZFX-WT02 temperature probe on the same network
+- ZFX-WT01 or ZFX-WT02 temperature probe on the same network
 
 ---
 
@@ -199,6 +208,35 @@ If you see `AttributeError: type object 'Server' has no attribute 'reason'`, you
 ```bash
 pip uninstall flask-socketio python-socketio python-engineio -y
 pip install -r requirements-rpi.txt
+```
+
+### Temperature Reading is Wrong
+
+If temperature shows 2.5°C instead of 25°C (or similar), the device type was detected incorrectly. Force the correct type:
+
+```bash
+# For ZFX-WT01 (K-type thermocouple)
+TUYA_DEVICE_TYPE="wt01" python app.py
+
+# For ZFX-WT02 (NTC thermistor)
+TUYA_DEVICE_TYPE="wt02" python app.py
+```
+
+For the systemd service, add to `griddle-monitor.service`:
+```ini
+[Service]
+Environment=TUYA_DEVICE_TYPE=wt01
+```
+
+### Multiple Devices in devices.json
+
+If you have multiple Tuya devices and the wrong one is being used:
+```bash
+# Select by name (partial match)
+TUYA_DEVICE_NAME="WT01" python app.py
+
+# Or by index (0-based)
+TUYA_DEVICE_INDEX=0 python app.py
 ```
 
 ---
