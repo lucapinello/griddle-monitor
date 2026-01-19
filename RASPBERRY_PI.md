@@ -1,15 +1,8 @@
 # Raspberry Pi Setup Guide
 
-Complete installation guide for running Griddle Monitor on a Raspberry Pi.
+Complete installation guide for running Griddle Monitor on a Raspberry Pi with auto-start on boot.
 
-## Supported Devices
-
-| Device | Sensor Type | Protocol | Notes |
-|--------|-------------|----------|-------|
-| **ZFX-WT01** | K-type thermocouple | 3.5 | High-temp cooking |
-| **ZFX-WT02** | NTC thermistor | 3.4 | General purpose |
-
-The app auto-detects the device type and applies the correct temperature conversion.
+**Prerequisites:** Before starting, complete the [First-Time Tuya Setup](README.md#first-time-tuya-setup) in the main README to get your device credentials.
 
 ## Tested Configurations
 
@@ -92,12 +85,13 @@ pip install -r requirements-rpi.txt
 
 ### Step 5: Configure Device Credentials
 
-Run the TinyTuya wizard:
+If you haven't already, complete the [First-Time Tuya Setup](README.md#first-time-tuya-setup), then run:
+
 ```bash
 python -m tinytuya wizard
 ```
 
-Enter your Tuya IoT Platform credentials when prompted. This creates `devices.json` with your device ID and local key. The app reads this file automatically.
+Enter your Access ID, Access Secret, and region. This creates `devices.json` - the app reads it automatically.
 
 ### Step 6: Test the Application
 
@@ -210,34 +204,19 @@ pip uninstall flask-socketio python-socketio python-engineio -y
 pip install -r requirements-rpi.txt
 ```
 
-### Temperature Reading is Wrong
+### Temperature Reading is Wrong / Multiple Devices
 
-If temperature shows 2.5°C instead of 25°C (or similar), the device type was detected incorrectly. Force the correct type:
+See [Common Scenarios](README.md#common-scenarios) in the main README.
 
-```bash
-# For ZFX-WT01 (K-type thermocouple)
-TUYA_DEVICE_TYPE="wt01" python app.py
-
-# For ZFX-WT02 (NTC thermistor)
-TUYA_DEVICE_TYPE="wt02" python app.py
-```
-
-For the systemd service, add to `griddle-monitor.service`:
+For systemd service, add environment variables to `griddle-monitor.service`:
 ```ini
 [Service]
 Environment=TUYA_DEVICE_TYPE=wt01
+# or
+Environment=TUYA_DEVICE_NAME=Kitchen
 ```
 
-### Multiple Devices in devices.json
-
-The app automatically finds the first WT01/WT02 probe, but if you have multiple probes:
-```bash
-# Select by name (partial match)
-TUYA_DEVICE_NAME="WT01" python app.py
-
-# Or by index (0-based)
-TUYA_DEVICE_INDEX=0 python app.py
-```
+Then restart: `sudo systemctl restart griddle-monitor`
 
 ---
 

@@ -10,122 +10,213 @@ A real-time web app for monitoring griddle/grill temperature using **Tuya ZFX-WT
 - **Real-time temperature display** - Fahrenheit/Celsius with live updates
 - **Live temperature graph** - 30-minute history with smooth curves
 - **Time-to-target prediction** - Estimates when you'll reach cooking temp
-- **Configurable alarms**:
-  - *Ready at* - notifies when griddle reaches target temperature
-  - *Too hot* - warns when temperature exceeds safe limit
-  - *Too low* - alerts if temperature drops below minimum
+- **Configurable alarms** - Ready, too hot, too low alerts
 - **Audio + browser notifications** - Never miss an alarm
-- **Mobile-friendly** - Responsive design works on phone/tablet/desktop
-- **Wake lock** - Prevents phone from sleeping while monitoring
+- **Mobile-friendly** - Responsive design, wake lock prevents screen sleep
 - **Auto-discovery** - Finds device IP automatically (handles DHCP changes)
-- **Local communication** - Talks directly to device, no cloud required
+- **Local communication** - Talks directly to device, no cloud required after setup
 
-## Raspberry Pi
+## Supported Devices
 
-For Raspberry Pi installation (including auto-start on boot), see **[RASPBERRY_PI.md](RASPBERRY_PI.md)**.
+| Device | Sensor Type | Use Case |
+|--------|-------------|----------|
+| **ZFX-WT01** | K-type thermocouple | High-temp cooking (grills, smokers) |
+| **ZFX-WT02** | NTC thermistor | General purpose |
 
-Includes fixes for:
-- Raspbian Buster (Python 3.7) compatibility
-- Systemd service for auto-start
-- Archived repository issues
+The app **auto-detects** your device type and applies the correct settings.
 
 ## Quick Start
 
-### 1. Clone the repository
+### Prerequisites
+
+Before you begin, you need:
+1. A **ZFX-WT01 or ZFX-WT02** temperature probe
+2. The probe connected to WiFi via the **Tuya Smart** or **Smart Life** app
+3. A **Tuya IoT Platform** developer account (free) - see [First-Time Tuya Setup](#first-time-tuya-setup) below
+
+### Installation
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/lucapinello/griddle-monitor.git
 cd griddle-monitor
-```
 
-### 2. Install dependencies
-
-```bash
+# 2. Install dependencies
 pip install -r requirements.txt
+
+# 3. Get your device credentials (see First-Time Tuya Setup below)
+python -m tinytuya wizard
+
+# 4. Start the app
+python app.py
 ```
 
-### 3. Configure your device
+Open http://localhost:5001 in your browser (or http://YOUR_IP:5001 from phone/tablet).
 
-Run the TinyTuya wizard to get your device credentials:
+---
+
+## First-Time Tuya Setup
+
+This one-time setup gets the credentials needed to communicate with your device locally.
+
+### Step 1: Create Tuya IoT Account
+
+1. Go to [iot.tuya.com](https://iot.tuya.com/) and create a free account
+2. Create a **Cloud Project**:
+   - Click "Cloud" → "Create Cloud Project"
+   - Name: anything (e.g., "Griddle Monitor")
+   - Industry: "Smart Home"
+   - Development Method: "Smart Home"
+   - Data Center: Choose your region (us, eu, cn)
+
+### Step 2: Link Your Mobile App
+
+1. In your Tuya IoT project, go to **Devices** → **Link Tuya App Account**
+2. Click "Add App Account" and scan the QR code with your **Tuya Smart** or **Smart Life** app
+3. Your devices should now appear in the Tuya IoT console
+
+### Step 3: Get API Credentials
+
+1. In your project, go to **Overview**
+2. Copy your **Access ID** and **Access Secret**
+
+### Step 4: Run the Wizard
 
 ```bash
 python -m tinytuya wizard
 ```
 
-You'll need:
-- **Access ID** and **Access Secret** from [Tuya IoT Platform](https://iot.tuya.com/)
-- Your device linked to the Tuya Smart or Smart Life app
+When prompted:
+- Enter your **Access ID**
+- Enter your **Access Secret**
+- Enter your **region** (us, eu, or cn)
+- Choose "Y" to poll cloud for devices
 
-This creates a `devices.json` file with your device credentials. The app reads this file automatically.
+This creates `devices.json` with your device credentials. **The app reads this automatically** - no further configuration needed!
 
-### 4. Start the server
+---
+
+## Common Scenarios
+
+### Adding a New Device
+
+If you buy a new probe:
+
+1. Add it to your WiFi via the Tuya Smart/Smart Life app
+2. Re-run the wizard to update `devices.json`:
+   ```bash
+   python -m tinytuya wizard
+   ```
+3. Restart the app - it will auto-detect the new device
+
+### Replacing a Broken Device
+
+If you replace a device:
+
+1. Remove the old device from your Tuya app
+2. Add the new device via the Tuya app
+3. Re-run the wizard:
+   ```bash
+   python -m tinytuya wizard
+   ```
+4. Restart the app
+
+### Multiple Temperature Probes
+
+The app **automatically uses the first WT01/WT02** it finds in `devices.json`.
+
+If you have multiple probes and want to use a specific one:
 
 ```bash
-python app.py
-```
+# By name (partial match)
+TUYA_DEVICE_NAME="Kitchen" python app.py
 
-### 5. Open in browser
-
-- **Local**: http://localhost:5001
-- **From phone/tablet**: http://YOUR_COMPUTER_IP:5001
-
-## Supported Devices
-
-| Device | Sensor Type | Protocol | Temp Divisor |
-|--------|-------------|----------|--------------|
-| **ZFX-WT01** | K-type thermocouple | 3.5 | 1 (raw °C) |
-| **ZFX-WT02** | NTC thermistor | 3.4 | 10 (value/10 = °C) |
-
-The app auto-detects the device type from `devices.json` and applies the correct temperature conversion.
-
-### Data Points (DPS)
-
-| DPS | Description | Format |
-|-----|-------------|--------|
-| 101 | Temperature | Integer (divisor depends on device type) |
-| 102 | Humidity | Integer, divide by 10 for % |
-| 119 | Temperature unit | String: "c" or "f" |
-
-## Device Selection
-
-**The app automatically finds the first ZFX-WT01/WT02 temperature probe in `devices.json`** - no configuration needed!
-
-If you have multiple temperature probes or need to override auto-detection, use these optional environment variables:
-
-```bash
-# Select by device name (partial match)
-TUYA_DEVICE_NAME="WT01" python app.py
-
-# Select by index (0-based)
+# By index in devices.json (0 = first, 1 = second, etc.)
 TUYA_DEVICE_INDEX=1 python app.py
-
-# Force device type (if auto-detection fails)
-TUYA_DEVICE_TYPE="wt01" python app.py
-
-# Override protocol version
-TUYA_VERSION="3.5" python app.py
-
-# Or provide credentials directly (bypasses devices.json)
-TUYA_DEVICE_ID="your_id" TUYA_LOCAL_KEY="your_key" TUYA_DEVICE_TYPE="wt01" python app.py
 ```
 
 For systemd service, add to `griddle-monitor.service`:
-
 ```ini
-[Service]
-Environment=TUYA_DEVICE_NAME=WT01
+Environment=TUYA_DEVICE_NAME=Kitchen
 ```
 
-### Environment Variables Reference
+### Wrong Temperature Reading
+
+If temperature shows 2.5°C instead of 25°C, force the device type:
+
+```bash
+# WT01 (K-type thermocouple) - temperature returned directly
+TUYA_DEVICE_TYPE="wt01" python app.py
+
+# WT02 (NTC thermistor) - temperature divided by 10
+TUYA_DEVICE_TYPE="wt02" python app.py
+```
+
+---
+
+## Raspberry Pi
+
+For Raspberry Pi installation with auto-start on boot, see **[RASPBERRY_PI.md](RASPBERRY_PI.md)**.
+
+Includes:
+- Python 3.7 compatibility fixes
+- Systemd service setup
+- Raspbian Buster archived repository fixes
+
+---
+
+## Troubleshooting
+
+### Device not found on network
+
+1. Make sure your probe is powered on and connected to WiFi
+2. Run a network scan:
+   ```bash
+   python -m tinytuya scan
+   ```
+3. If not found, the device may have a new IP - the app will auto-rescan
+
+### "Local key expired" or connection refused
+
+Your device credentials changed (e.g., you re-paired the device). Re-run the wizard:
+```bash
+python -m tinytuya wizard
+```
+
+### Port 5000 in use (macOS)
+
+macOS uses port 5000 for AirPlay. This app uses port **5001** instead.
+
+### Alarms not working on mobile
+
+Mobile browsers require user interaction before playing audio. **Tap anywhere on the page** after loading to enable sounds.
+
+---
+
+## Advanced Configuration
+
+### Environment Variables
+
+All optional - the app works without any of these:
 
 | Variable | Description |
 |----------|-------------|
+| `TUYA_DEVICE_NAME` | Select device by name (partial match) |
+| `TUYA_DEVICE_INDEX` | Select device by index in devices.json |
+| `TUYA_DEVICE_TYPE` | Force device type: `wt01` or `wt02` |
+| `TUYA_VERSION` | Protocol version: `3.4` or `3.5` |
 | `TUYA_DEVICE_ID` | Device ID (bypasses devices.json) |
 | `TUYA_LOCAL_KEY` | Local key (required with DEVICE_ID) |
-| `TUYA_DEVICE_NAME` | Select device by name from devices.json |
-| `TUYA_DEVICE_INDEX` | Select device by index (0-based) |
-| `TUYA_DEVICE_TYPE` | Force type: `wt01` or `wt02` |
-| `TUYA_VERSION` | Protocol version: `3.4` or `3.5` |
+
+### Data Points (DPS)
+
+| DPS | Description |
+|-----|-------------|
+| 101 | Temperature (raw value from device) |
+| 102 | Humidity (divide by 10 for %) |
+| 119 | Temperature unit setting ("c" or "f") |
+
+---
 
 ## Architecture
 
@@ -143,73 +234,22 @@ Environment=TUYA_DEVICE_NAME=WT01
 
 ```
 griddle-monitor/
-├── app.py                    # Flask backend with WebSocket
-├── tuya_explorer.py          # Device discovery/debugging tool
-├── temp_probe.py             # Simple CLI temperature reader
+├── app.py                    # Flask backend
 ├── requirements.txt          # Python 3.8+ dependencies
-├── requirements-rpi.txt      # Python 3.7 (Raspberry Pi) dependencies
+├── requirements-rpi.txt      # Python 3.7 dependencies
+├── devices.json              # Your device credentials (generated)
 ├── griddle-monitor.service   # Systemd service for auto-start
-├── devices.json              # Device credentials (generated by wizard)
-├── RASPBERRY_PI.md           # Raspberry Pi setup guide
-├── templates/
-│   └── index.html            # Main web page
+├── templates/index.html      # Web UI
 └── static/
-    ├── app.js                # Frontend JavaScript
-    └── style.css             # Responsive styling
-```
-
-## Tuya IoT Platform Setup
-
-1. Create a free account at [iot.tuya.com](https://iot.tuya.com/)
-2. Create a Cloud Project:
-   - Select "Smart Home" as the industry
-   - Choose your data center region (us, eu, cn)
-3. Subscribe to these APIs (Cloud → API Explorer → Subscribe):
-   - IoT Core
-   - Authorization
-4. Link your Tuya Smart/Smart Life app:
-   - Go to Devices → Link Tuya App Account
-   - Scan the QR code with your mobile app
-5. Run the TinyTuya wizard:
-   ```bash
-   python -m tinytuya wizard
-   ```
-   Enter your Access ID, Access Secret, and region when prompted.
-
-## Troubleshooting
-
-### Port 5000 in use (macOS)
-macOS uses port 5000 for AirPlay. The app uses port 5001 instead.
-
-### Device not responding
-1. Run `python -m tinytuya scan` to check if device is visible
-2. The app will automatically re-scan if it can't connect
-3. Click "Rescan Network" button in the UI if needed
-
-### Local key expired
-If you reset or re-pair the device in the Tuya app, run the wizard again:
-```bash
-python -m tinytuya wizard
-```
-
-### Alarms not working on mobile
-Mobile browsers require user interaction before playing audio. Tap anywhere on the page after loading to enable sounds.
-
-### Temperature reading is wrong (e.g., 2.5°C instead of 25°C)
-The app may have detected the wrong device type. Force the correct type:
-```bash
-# For ZFX-WT01 (K-type thermocouple) - no division needed
-TUYA_DEVICE_TYPE="wt01" python app.py
-
-# For ZFX-WT02 (NTC thermistor) - divide by 10
-TUYA_DEVICE_TYPE="wt02" python app.py
+    ├── app.js                # Frontend logic
+    └── style.css             # Styling
 ```
 
 ## Tech Stack
 
 - **Backend**: Python, Flask, Flask-SocketIO
 - **Frontend**: HTML, CSS, JavaScript, Chart.js
-- **Device Communication**: TinyTuya
+- **Device Communication**: TinyTuya (local network)
 - **Real-time Updates**: WebSocket (Socket.IO)
 
 ## Contributing
