@@ -36,7 +36,7 @@ def load_device_config():
             devices = json.load(f)
             if devices:
                 device = devices[0]  # Use first device
-                return device['id'], device['key'], float(device.get('version', 3.4))
+                return device['id'], device['key'], float(device.get('version', 3.5))
 
     raise ValueError(
         "No device configuration found. Either:\n"
