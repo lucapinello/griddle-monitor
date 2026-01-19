@@ -88,9 +88,9 @@ The app auto-detects the device type from `devices.json` and applies the correct
 
 ## Device Selection
 
-If you have multiple devices in `devices.json`, you can select which one to use:
+**The app automatically finds the first ZFX-WT01/WT02 temperature probe in `devices.json`** - no configuration needed!
 
-### Option 1: Environment Variables
+If you have multiple temperature probes or need to override auto-detection, use these optional environment variables:
 
 ```bash
 # Select by device name (partial match)
@@ -109,18 +109,14 @@ TUYA_VERSION="3.5" python app.py
 TUYA_DEVICE_ID="your_id" TUYA_LOCAL_KEY="your_key" TUYA_DEVICE_TYPE="wt01" python app.py
 ```
 
-### Option 2: Systemd Service
-
-Edit `griddle-monitor.service` to add environment variables:
+For systemd service, add to `griddle-monitor.service`:
 
 ```ini
 [Service]
 Environment=TUYA_DEVICE_NAME=WT01
-# or
-Environment=TUYA_DEVICE_INDEX=0
 ```
 
-### Available Environment Variables
+### Environment Variables Reference
 
 | Variable | Description |
 |----------|-------------|

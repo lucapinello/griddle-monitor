@@ -230,7 +230,7 @@ Environment=TUYA_DEVICE_TYPE=wt01
 
 ### Multiple Devices in devices.json
 
-If you have multiple Tuya devices and the wrong one is being used:
+The app automatically finds the first WT01/WT02 probe, but if you have multiple probes:
 ```bash
 # Select by name (partial match)
 TUYA_DEVICE_NAME="WT01" python app.py

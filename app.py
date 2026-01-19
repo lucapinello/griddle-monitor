@@ -59,8 +59,19 @@ def detect_device_type(device_info):
     return 'wt02'
 
 
+def is_temperature_probe(device_info):
+    """Check if a device is a supported temperature probe (WT01/WT02)."""
+    fields_to_check = [
+        device_info.get('name', ''),
+        device_info.get('model', ''),
+        device_info.get('product_name', ''),
+    ]
+    combined = ' '.join(fields_to_check).upper()
+    return 'WT01' in combined or 'WT-01' in combined or 'WT02' in combined or 'WT-02' in combined
+
+
 def find_device_in_list(devices, device_name=None, device_index=None):
-    """Find a device in the devices list by name or index."""
+    """Find a device in the devices list by name, index, or auto-detect."""
     if not devices:
         return None
 
@@ -79,17 +90,29 @@ def find_device_in_list(devices, device_name=None, device_index=None):
                 device_name_lower == device_id):
                 return device
 
-        print(f"Warning: Device '{device_name}' not found, using first device")
+        print(f"Warning: Device '{device_name}' not found")
 
     # If device_index specified, use it
     if device_index is not None:
         if 0 <= device_index < len(devices):
             return devices[device_index]
         else:
-            print(f"Warning: Device index {device_index} out of range, using first device")
+            print(f"Warning: Device index {device_index} out of range")
 
-    # Default to first device
-    return devices[0]
+    # Auto-detect: find the first temperature probe device (WT01/WT02)
+    for device in devices:
+        if is_temperature_probe(device):
+            print(f"Auto-detected temperature probe: {device.get('name', device.get('id'))}")
+            return device
+
+    # No temperature probe found, show available devices and fail gracefully
+    print("No ZFX-WT01/WT02 temperature probe found in devices.json")
+    print("Available devices:")
+    for i, d in enumerate(devices):
+        print(f"  [{i}] {d.get('name', 'Unknown')} ({d.get('product_name', d.get('id'))})")
+    print("\nUse TUYA_DEVICE_INDEX=N to select a specific device")
+
+    return None
 
 
 def load_device_config():
@@ -137,6 +160,13 @@ def load_device_config():
                 device_index = int(device_index_str) if device_index_str else None
 
                 device = find_device_in_list(devices, device_name, device_index)
+
+                if not device:
+                    raise ValueError(
+                        "No compatible temperature probe found in devices.json.\n"
+                        "Supported devices: ZFX-WT01, ZFX-WT02\n"
+                        "Use TUYA_DEVICE_INDEX=N to select a specific device from the list above."
+                    )
 
                 if device:
                     # Auto-detect device type or use environment override
